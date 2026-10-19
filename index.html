@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ninew's collatz</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/2.3.4/p5.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #000000;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    button,
+    input {
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+<script>
+  let input;
+  let num=0n;
+  let running=false;
+  let list=[];
+  let highest=1;
+  let beginSim=false;
+  let guide=false;
+  let speed=0.03;
+  let circles=1;
+  let lerpAmount=0;
+  let iterations=0;
+
+  function setup() {
+    createCanvas(windowWidth, windowHeight);
+
+    input=createInput("", "number");
+    input.position(100, 140);
+    input.size(125);
+
+    const button=createButton("start !");
+    button.position(230, 140);
+    button.mousePressed(startSim);
+
+    const twoX=createButton("2x speed");
+    twoX.position(380, 140);
+    twoX.mousePressed(xTwo);
+
+    const eightX=createButton("8x speed");
+    eightX.position(480, 140);
+    eightX.mousePressed(xEight);
+
+    const halfX=createButton("half speed");
+    halfX.position(580, 140);
+    halfX.mousePressed(xHalf);
+
+    const normalX=createButton("1x speed");
+    normalX.position(680, 140);
+    normalX.mousePressed(xOne);
+
+
+    const fastX=createButton("speedrun");
+    fastX.position(780, 140);
+    fastX.mousePressed(xThirtyTwo);
+  }
+
+  function windowResized() {
+    resizeCanvas(windowWidth, windowHeight);
+  }
+
+  function pointColor(index) {
+    if (index===0) {
+      return color(255);
+    }
+
+    if (BigInt(list[index])>BigInt(list[index-1])) {
+      return color(255, 45, 45);
+    }
+
+    return color(45, 130, 255);
+  }
+
+  function arcHeight(fromX, toX) {
+    return Math.min(Math.abs(toX-fromX)/2, 50, Math.max(0, height/2-100));
+  }
+
+  function arcY(t, fromX, toX) {
+    return height/2-arcHeight(fromX, toX)*Math.sin(Math.PI*t);
+  }
+
+  function drawArcPath(fromIndex, toIndex, xFor, alpha) {
+    const fromX=xFor(list[fromIndex]);
+    const toX=xFor(list[toIndex]);
+    const c=pointColor(toIndex);
+    c.setAlpha(alpha);
+
+    noFill();
+    stroke(c);
+    strokeWeight(2);
+
+    beginShape();
+
+    for (let step=0; step<=30; step++) {
+      const t=step/30;
+      const x=fromX+(toX-fromX)*t;
+      vertex(x, arcY(t, fromX, toX));
+    }
+
+    endShape();
+    noStroke();
+  }
+
+  function draw() {
+    background(0);
+     if (guide) {
+      stroke(255);
+      strokeWeight(3);
+      fill(0);
+      rect(windowWidth/4, windowHeight/4, windowWidth/2, windowHeight/2);
+      noStroke();
+      fill(255);
+      textSize(14);
+      text("this program basically demonstrates the Collatz Conjecture.\n The Collatz Conjecture is unproven but also has no disproof and it states that for any number n, when we make a new number n in which: \n\n if n is odd, the new # is 3n+n \nif n is even, the new # is n/2\n\nand after a number of repeated iterations, the number will eventually go to 1. \n (which then cycles to 4, 2, 1, 4, 2, 1....) \n\nwhen the program is 'loading', it is simulating the whole thing beforehand and adding it into a list, to create an animation.\n\n press space to close.", windowWidth/4+20, windowHeight/4+20, windowWidth/2-40, windowHeight/2-40);
+     }
+
+    noStroke();
+    fill(255);
+    textAlign(LEFT, BASELINE);
+    textSize(18);
+    text("welcome", 100, 100);
+    text("pick a positive integer less than a trillion", 100, 125);
+    text("iterations: "+iterations, 100, 200);
+    text("press space for info", 100, 250)
+
+    textSize(18);
+
+    if (beginSim) {
+      if (circles<list.length) {
+        let targetHighest=1;
+
+        for (let i=Math.max(0, circles-3); i<=Math.min(list.length-1, circles); i++) {
+          if (Number(list[i])>targetHighest) {
+            targetHighest=Number(list[i]);
+          }
+        }
+
+        highest+=(targetHighest-highest)*0.08;
+      }
+
+      const xFor=value=>Number(value)/(highest*1.1)*width;
+
+      stroke(255);
+      strokeWeight(2);
+      line(0, height/2, width, height/2);
+      noStroke();
+
+      const firstVisible=Math.max(0, circles-3);
+
+      for (let i=Math.max(1, firstVisible); i<circles; i++) {
+        const age=circles-1-i;
+        const alpha=age===0 ? 230 : age===1 ? 145 : 65;
+        drawArcPath(i-1, i, xFor, alpha);
+      }
+
+      if (circles<list.length) {
+        drawArcPath(circles-1, circles, xFor, 65);
+      }
+
+      for (let i=firstVisible; i<circles; i++) {
+        const age=circles-1-i;
+        const alpha=age===0 ? 255 : age===1 ? 165 : 75;
+        const pointX=xFor(list[i]);
+        const c=pointColor(i);
+        c.setAlpha(alpha);
+
+        noStroke();
+        fill(c);
+        circle(pointX, height/2, 10);
+
+        fill(255, alpha);
+        textSize(14);
+        textAlign(CENTER, TOP);
+        text(list[i], pointX, height/2+10);
+      }
+
+      if (circles<list.length) {
+        const fromX=xFor(list[circles-1]);
+        const toX=xFor(list[circles]);
+        const t=lerpAmount;
+        const x=fromX+(toX-fromX)*t;
+        const y=arcY(t, fromX, toX);
+        const c=pointColor(circles);
+
+        noStroke();
+        fill(c);
+        circle(x, y, 10);
+
+        fill(255);
+        textSize(14);
+        textAlign(CENTER, BOTTOM);
+        text(list[circles], x, y-10);
+
+        lerpAmount+=speed;
+
+        if (lerpAmount>=1) {
+          circles++;
+          iterations++;
+          lerpAmount=0;
+        }
+      }
+
+      const currentIndex=Math.min(circles, list.length-1);
+      fill(255);
+      textSize(16);
+      textAlign(LEFT, BASELINE);
+      text("number: "+list[currentIndex], 100, 175);
+    } else {
+      textAlign(CENTER, CENTER);
+      textSize(15);
+
+      if (running) {
+        if (num!==1n) {
+          if (num%2n===0n) {
+            num=num/2n;
+          } else {
+            num=3n*num+1n;
+          }
+
+          list.push(String(num));
+        }
+
+        if (num===1n) {
+          running=false;
+        }
+
+        fill(255);
+        textSize(40);
+        text("loading", width/2, height-200);
+        guide=false;
+        textSize(14);
+        text("loading number: "+list[list.length-1], width/2, height-150);
+      } else if (list.length>0) {
+        highest=Number(list[0]);
+        circles=1;
+        lerpAmount=0;
+        beginSim=true;
+      }
+    }
+  }
+
+  function startSim() {
+    const value=input.value();
+
+    if (
+      !/^\d+$/.test(value) ||
+      BigInt(value)<=0n ||
+      BigInt(value)>=1_000_000_000_000n
+    ) {
+      return;
+    }
+
+    num=BigInt(value);
+    list=[String(num)];
+    highest=Number(num);
+    circles=1;
+    lerpAmount=0;
+    beginSim=false;
+    running=true;
+  }
+
+  function keyPressed() {
+    if (key===' ') {
+      guide=!guide;
+    }
+  }
+
+  function xTwo() {
+    speed=0.06;
+  }
+
+  function xEight() {
+    speed=0.24;
+  }
+
+   function xThirtyTwo() {
+    speed=0.8;
+  }
+
+  function xHalf() {
+    speed=0.015;
+  }
+
+  function xOne() {
+    speed=0.03;
+  }
+</script>
+</body>
+</html>
